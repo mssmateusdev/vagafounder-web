@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '../lib/tauri';
 import type { Job } from '../types';
 
 interface JobDetailsModalProps {

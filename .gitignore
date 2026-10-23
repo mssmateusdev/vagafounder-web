@@ -29,3 +29,6 @@ src-tauri/target/
 src-tauri/gen/
 target/
 scratch/
+
+# Vercel
+.vercel
