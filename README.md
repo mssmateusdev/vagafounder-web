@@ -191,6 +191,31 @@ Os arquivos gerados ficarão disponíveis em:
 
 ---
 
+## 🌐 Versão Web (Deploy na Vercel)
+
+Além do app desktop, o VagaFounder roda como aplicação web a partir do **mesmo
+código**. O scraping que no desktop é feito em Rust passa a ser feito por
+**serverless functions** em TypeScript (pasta `api/`), e o frontend detecta
+automaticamente o ambiente via `src/lib/tauri.ts` (IPC nativo no Tauri, rotas
+`/api/*` no navegador).
+
+```bash
+# build de produção da versão web (gera dist/)
+npm run build:web
+```
+
+O deploy é direto na Vercel: importe o repositório, que o `vercel.json` já
+configura build (`npm run build:web`), output (`dist`) e as functions.
+
+**Diferenças da web:** o Indeed fica indisponível (exige navegador nativo), não
+há monitoramento contínuo em segundo plano, e recursos de janela/tray/notificação
+nativa são exclusivos do desktop. Kanban, favoritos, dark mode e avisos de
+Telegram/Discord funcionam normalmente.
+
+📄 **Passo a passo completo:** veja [`DEPLOY.md`](./DEPLOY.md).
+
+---
+
 ## 📄 Licença
 
 Este projeto é distribuído sob a licença **MIT**. Consulte o arquivo `LICENSE` para mais detalhes.
