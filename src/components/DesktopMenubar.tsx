@@ -105,7 +105,7 @@ export const DesktopMenubar: React.FC<DesktopMenubarProps> = ({
   return (
     <div 
       ref={menubarRef} 
-      className="h-7 w-full bg-slate-900 border-b border-slate-800 text-slate-300 text-xs flex items-center justify-between px-2 select-none z-40 shrink-0"
+      className="h-7 w-full bg-slate-900 border-b border-slate-800 text-slate-300 text-xs hidden sm:flex items-center justify-between px-2 select-none z-40 shrink-0"
     >
       <div className="flex items-center gap-1">
         {/* Marca desktop */}

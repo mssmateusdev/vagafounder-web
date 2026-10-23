@@ -12,13 +12,32 @@
     width: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden;
     font-family: var(--font-desktop);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Trava de app nativo: sem scroll, sem seleção, cursor de desktop.
+     Aplicada APENAS no shell Tauri (classe setada em runtime). Na web/mobile
+     o conteúdo precisa rolar e permitir seleção de texto normalmente. */
+  html.is-desktop,
+  html.is-desktop body,
+  html.is-desktop #root {
+    overflow: hidden;
+  }
+
+  html.is-desktop body {
     user-select: none;
     -webkit-user-select: none;
     cursor: default;
+  }
+
+  /* Suporte a safe-area em celulares com notch (PWA em tela cheia) */
+  @supports (padding: max(0px)) {
+    body {
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
   }
 
   body {

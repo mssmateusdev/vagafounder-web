@@ -39,11 +39,12 @@ import {
   Send,
   Keyboard,
   Activity,
-  CheckCircle
+  CheckCircle,
+  Menu
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { invoke, listen } from './lib/tauri';
+import { invoke, listen, isTauri } from './lib/tauri';
 import type { 
   Job, 
   MonitorStatus, 
@@ -135,6 +136,8 @@ export default function App() {
 
   // Responsividade, Modos de Visualização e Split-View
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  // Drawer da sidebar no mobile (sobreposição off-canvas abaixo do breakpoint lg)
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'split'>('table');
   const [activeSplitJob, setActiveSplitJob] = useState<Job | null>(null);
   const [focusedJobIndex, setFocusedJobIndex] = useState<number>(0);
@@ -925,6 +928,11 @@ export default function App() {
     setCurrentPage(1);
   }, [searchQuery, selectedSource, filterWithSalaryOnly, filterWithBenefitsOnly, selectedCityFilter, selectedRoleFilter, selectedTimeFilter, activeTab, historySubTab]);
 
+  // Fecha o drawer da sidebar ao navegar entre abas no mobile
+  useEffect(() => {
+    setIsMobileSidebarOpen(false);
+  }, [activeTab]);
+
   // Split view: sincronizar vaga selecionada
   useEffect(() => {
     if (viewMode === 'split' && paginatedJobs.length > 0) {
@@ -935,8 +943,12 @@ export default function App() {
     }
   }, [viewMode, paginatedJobs]);
 
-  // Impedir zoom com a roda do mouse (Ctrl + Wheel) e menu de contexto padrão de browser
+  // Impedir zoom com a roda do mouse (Ctrl + Wheel) e menu de contexto padrão.
+  // Comportamento de app nativo: só no desktop (Tauri). Na web/mobile isso
+  // atrapalharia o pinch-zoom e o toque longo, então não registramos.
   useEffect(() => {
+    if (!isTauri) return;
+
     const handleWheel = (e: WheelEvent) => {
       if (e.ctrlKey) {
         e.preventDefault();
@@ -1085,6 +1097,10 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeTab, paginatedJobs, focusedJobIndex, viewMode, isDetailsModalOpen, contextMenu, isShortcutsOpen, isAboutOpen]);
 
+  // Rótulos da sidebar: ocultos quando recolhida no desktop; sempre visíveis
+  // quando o drawer está aberto no mobile (lá a sidebar ocupa a largura cheia).
+  const showSidebarLabels = !isSidebarCollapsed || isMobileSidebarOpen;
+
   const nextCheckMinutes = useMemo(() => {
     if (!monitorStatus?.nextCheckAt) return null;
     const diffMs = new Date(monitorStatus.nextCheckAt).getTime() - Date.now();
@@ -1126,15 +1142,31 @@ export default function App() {
 
       {/* ---------------- ÁREA DE TRABALHO PRINCIPAL (Sidebar + Dashboard) ---------------- */}
       <div className="flex flex-1 min-h-0 overflow-hidden w-full">
+        {/* Overlay do drawer da sidebar no mobile */}
+        {isMobileSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/60 z-30 lg:hidden"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
         {/* ---------------- SIDEBAR (Estilo Discord) ---------------- */}
-        <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-slate-900 dark:bg-discord-darkest flex flex-col justify-between shrink-0 shadow-2xl border-r border-slate-800 dark:border-discord-borderSubtle transition-all duration-300 ease-in-out z-20`}>
+        {/* Desktop (lg+): estática, largura controlada por isSidebarCollapsed.
+            Mobile: drawer off-canvas sobreposto, controlado por isMobileSidebarOpen. */}
+        <aside className={`
+          fixed inset-y-0 left-0 w-64 z-40 transform transition-transform duration-300 ease-in-out
+          ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:static lg:translate-x-0 lg:z-20 lg:transform-none
+          ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-64'}
+          bg-slate-900 dark:bg-discord-darkest flex flex-col justify-between shrink-0 shadow-2xl border-r border-slate-800 dark:border-discord-borderSubtle`}>
         <div>
           <div className="p-4 flex items-center justify-between border-b border-slate-800/80 dark:border-discord-borderSubtle">
             <div className="flex items-center gap-3 overflow-hidden">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-emerald-500 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 shrink-0">
                 <Briefcase size={20} className="stroke-[2.5]" />
               </div>
-              {!isSidebarCollapsed && (
+              {showSidebarLabels && (
                 <div className="truncate">
                   <h1 className="text-white dark:text-discord-header font-bold text-base tracking-tight leading-none">VagaFounder</h1>
                   <p className="text-[11px] text-emerald-400 font-semibold tracking-wide mt-1">by: MateusDeveloper</p>
@@ -1162,8 +1194,8 @@ export default function App() {
               title="Painel de Vagas"
             >
               <Briefcase size={18} className="shrink-0" />
-              {!isSidebarCollapsed && <span>Painel de Vagas</span>}
-              {!isSidebarCollapsed && jobs.length > 0 && (
+              {showSidebarLabels && <span>Painel de Vagas</span>}
+              {showSidebarLabels && jobs.length > 0 && (
                 <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-slate-800 dark:bg-discord-input text-slate-300 dark:text-discord-text font-semibold border border-slate-700 dark:border-discord-border">
                   {jobs.length}
                 </span>
@@ -1181,8 +1213,8 @@ export default function App() {
               title="Funil de Candidaturas (Kanban)"
             >
               <Trophy size={18} className="shrink-0 text-amber-400" />
-              {!isSidebarCollapsed && <span>Funil de Candidaturas</span>}
-              {!isSidebarCollapsed && kanbanApps.length > 0 && (
+              {showSidebarLabels && <span>Funil de Candidaturas</span>}
+              {showSidebarLabels && kanbanApps.length > 0 && (
                 <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
                   {kanbanApps.length}
                 </span>
@@ -1199,8 +1231,8 @@ export default function App() {
               title="Candidaturas e Favoritos"
             >
               <Bookmark size={18} className="shrink-0" />
-              {!isSidebarCollapsed && <span>Minhas Vagas</span>}
-              {!isSidebarCollapsed && (favorites.length > 0 || appliedJobs.length > 0) && (
+              {showSidebarLabels && <span>Minhas Vagas</span>}
+              {showSidebarLabels && (favorites.length > 0 || appliedJobs.length > 0) && (
                 <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-semibold border border-amber-500/30">
                   {favorites.length + appliedJobs.length}
                 </span>
@@ -1217,7 +1249,7 @@ export default function App() {
               title="Configurações & Notificações"
             >
               <Settings size={18} className="shrink-0" />
-              {!isSidebarCollapsed && <span>Configurações</span>}
+              {showSidebarLabels && <span>Configurações</span>}
             </button>
           </nav>
         </div>
@@ -1226,7 +1258,7 @@ export default function App() {
         <div className="p-3 border-t border-slate-800/80 dark:border-discord-borderSubtle">
           <div className="bg-slate-800/60 dark:bg-discord-card rounded-xl p-3 border border-slate-800 dark:border-discord-border">
             <div className="flex items-center justify-between mb-1">
-              {!isSidebarCollapsed && (
+              {showSidebarLabels && (
                 <span className="text-xs font-semibold text-slate-300 dark:text-discord-header">
                   {monitorStatus?.paused ? 'Monitor Pausado' : '7 Fontes Monitoradas'}
                 </span>
@@ -1238,7 +1270,7 @@ export default function App() {
                 <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${monitorStatus?.paused ? 'bg-amber-400' : 'bg-emerald-500'}`}></span>
               </span>
             </div>
-            {!isSidebarCollapsed && (
+            {showSidebarLabels && (
               <p className="text-[11px] text-slate-400 dark:text-discord-muted leading-tight">
                 Gupy, LinkedIn, Indeed, Vagas, Trab. Brasil, InfoJobs e Catho
               </p>
@@ -1250,17 +1282,28 @@ export default function App() {
       {/* ---------------- CONTEÚDO PRINCIPAL ---------------- */}
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
         {/* Topbar Superior */}
-        <header className="h-16 bg-white dark:bg-discord-card border-b border-slate-200/90 dark:border-discord-border flex items-center justify-between px-6 shrink-0 gap-4 transition-colors">
+        <header className="h-16 bg-white dark:bg-discord-card border-b border-slate-200/90 dark:border-discord-border flex items-center justify-between px-3 sm:px-6 shrink-0 gap-2 sm:gap-4 transition-colors">
           <div className="flex items-center gap-3 shrink-0">
+            {/* Hamburger: abre o drawer da sidebar no mobile */}
+            <button
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="lg:hidden p-2 text-slate-500 hover:text-slate-800 dark:text-discord-muted dark:hover:text-discord-header hover:bg-slate-100 dark:hover:bg-discord-hover rounded-xl transition-all border border-slate-200 dark:border-discord-border cursor-pointer"
+              title="Abrir menu"
+              aria-label="Abrir menu de navegação"
+            >
+              <Menu size={18} />
+            </button>
+
+            {/* Alternar largura da sidebar: só faz sentido no desktop */}
             <button 
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="p-2 text-slate-500 hover:text-slate-800 dark:text-discord-muted dark:hover:text-discord-header hover:bg-slate-100 dark:hover:bg-discord-hover rounded-xl transition-all border border-slate-200 dark:border-discord-border cursor-pointer"
+              className="hidden lg:flex p-2 text-slate-500 hover:text-slate-800 dark:text-discord-muted dark:hover:text-discord-header hover:bg-slate-100 dark:hover:bg-discord-hover rounded-xl transition-all border border-slate-200 dark:border-discord-border cursor-pointer"
               title="Alternar barra lateral"
             >
               {isSidebarCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
             </button>
 
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-discord-muted font-medium">
+            <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500 dark:text-discord-muted font-medium">
               <span>Dashboard</span>
               <span>/</span>
               <span className="text-slate-900 dark:text-discord-header font-semibold capitalize">
@@ -1365,7 +1408,7 @@ export default function App() {
 
         {/* ---------------- BARRA DE BUSCA E FILTROS DIRETOS ---------------- */}
         {activeTab === 'jobs' && (
-          <div className="bg-white dark:bg-discord-card border-b border-slate-200/90 dark:border-discord-border px-6 py-2.5 shrink-0 shadow-2xs space-y-2">
+          <div className="bg-white dark:bg-discord-card border-b border-slate-200/90 dark:border-discord-border px-3 sm:px-6 py-2.5 shrink-0 shadow-2xs space-y-2">
             <div className="flex items-center gap-2.5 flex-wrap">
               {/* Busca Textual Direta com Filtragem Instantânea e Busca Web Otimizada */}
               <form onSubmit={handleSearchSubmit} className="relative flex-1 min-w-[240px] flex items-center">
@@ -2092,7 +2135,7 @@ export default function App() {
                 /* ---------------- MODO TABELA ---------------- */
                 <div className="bg-white dark:bg-discord-card rounded-2xl border border-slate-200/90 dark:border-discord-border shadow-sm overflow-hidden w-full">
                   <div className="overflow-x-auto w-full">
-                    <table className="w-full text-left border-collapse table-auto">
+                    <table className="w-full min-w-[720px] text-left border-collapse table-auto">
                       <thead>
                         <tr className="bg-slate-50/90 dark:bg-discord-darkest/90 border-b border-slate-200 dark:border-discord-border text-xs font-bold text-slate-600 dark:text-discord-muted uppercase tracking-wider">
                           <th className="py-3 px-3 w-10 text-center">#</th>
